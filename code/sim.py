@@ -56,4 +56,32 @@ def createStart(rb):
   return (rb * int(math.sin(deg)), rb * int(math.cos(deg)))
 
 def step2(rb, k, w):
+  # return walks
   return [createWalk(rb, k, createStart(rb)) for i in range(w)]
+
+def step3(walks): 
+  S = set()
+  S.add((0,0))
+  res = [None for i in range(len(walks))]
+  for i in range(len(walks)): 
+    for j in walks[i]: 
+      if j in S: 
+        res[i] = j
+        break
+  return res 
+
+def step4(res, walk): 
+  for i in range(len(walks)): 
+    for j in range(i): 
+      i_walk = walks[i]
+      for k in range(len(i_walk)):
+        if res[j] == i_walk[k]:
+          return i
+  return None
+
+# def step5()
+
+
+
+if __name__ == "__main__":
+  main() 
