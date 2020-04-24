@@ -7,6 +7,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <string.h>
 
 /*
   Random number generator uses 64-bit arithmetic,
@@ -37,4 +42,4 @@ double mweight(double val, double optval);
 double imbalance(int lcount, int rcount);
 
 #define RUTIL_H
-#endif 
+#endif

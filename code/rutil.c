@@ -4,7 +4,6 @@
 */
 
 #include "rutil.h"
-#include <stdio.h>
 
 /* Standard parameters */
 #define GROUPSIZE 2147483647
