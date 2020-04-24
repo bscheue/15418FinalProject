@@ -23,3 +23,4 @@ typedef struct {
 } coord_t; 
 
 cluster_t *init_graph(int rc); 
+
