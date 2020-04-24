@@ -9,7 +9,7 @@ def neighbors((x, y)):
 def neighborhood(cluster):
   res = set()
   for point in cluster:
-    res.union(neighbors(point))
+    res.update(neighbors(point))
   return res
 
 
@@ -91,7 +91,7 @@ def step4(res, walks):
       i_walk = walks[i]
       for k in range(len(i_walk)):
         if walks[j][res[j]] == i_walk[k]:
-          return j
+          return i
   return None
 
 
@@ -107,11 +107,9 @@ def doBatch(cluster):
   M = 1
   (rb, k, w) = step1(rc, M)
   walks = step2(rb, k, w)
-  print(walks)
   res = step3(walks, cluster)
   k = step4(res, walks)
   step5(cluster, res, walks, k)
-  print(k)
   print(cluster)
 
 
