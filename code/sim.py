@@ -2,6 +2,17 @@ import math
 import random
 
 
+def neighbors((x, y)):
+  return {(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)}
+
+
+def neighborhood(cluster):
+  res = set()
+  for point in cluster:
+    res.union(neighbors(point))
+  return res
+
+
 def prefixsum(xs, start):
   accx = start[0]
   accy = start[1]
@@ -15,21 +26,21 @@ def prefixsum(xs, start):
 
 # from page 14
 def chooseK(rc):
-  factor = 1
+  factor = 3
   return factor * rc**2
 
 
 # from page 14
 def chooseW(M):
-  factor = 1
+  factor = 3
   epsilon = .01
   return factor * M**(1 + epsilon)
 
 
-def step1(rc):
+def step1(rc, M):
   rb = rc + 2
-  k = chooseK(rc)
-  w = chooseW(M)
+  k = int(chooseK(rc))
+  w = int(chooseW(M))
   return (rb, k, w)
 
 
@@ -55,33 +66,60 @@ def createStart(rb):
   deg = random.randint(1, 360)
   return (rb * int(math.sin(deg)), rb * int(math.cos(deg)))
 
+
 def step2(rb, k, w):
   # return walks
   return [createWalk(rb, k, createStart(rb)) for i in range(w)]
 
-def step3(walks): 
-  S = set()
-  S.add((0,0))
+
+def step3(walks, cluster):
   res = [None for i in range(len(walks))]
-  for i in range(len(walks)): 
-    for j in walks[i]: 
-      if j in S: 
+  nbhd = neighborhood(cluster)
+  for i in range(len(walks)):
+    for j in range(len(walks[i])):
+      if walks[i][j] in nbhd:
         res[i] = j
         break
-  return res 
+  return res
 
-def step4(res, walk): 
-  for i in range(len(walks)): 
-    for j in range(i): 
+
+def step4(res, walks):
+  for i in range(len(walks)):
+    for j in range(i):
+      if res[j] is None:
+        break
       i_walk = walks[i]
       for k in range(len(i_walk)):
-        if res[j] == i_walk[k]:
-          return i
+        if walks[j][res[j]] == i_walk[k]:
+          return j
   return None
 
-# def step5()
 
+def step5(cluster, res, walks, k):
+  k = k if k is not None else len(res)
+  for i in range(k):
+    if res[i] is not None:
+      cluster.add(walks[i][res[i]])
+
+
+def doBatch(cluster):
+  rc = 1
+  M = 1
+  (rb, k, w) = step1(rc, M)
+  walks = step2(rb, k, w)
+  print(walks)
+  res = step3(walks, cluster)
+  k = step4(res, walks)
+  step5(cluster, res, walks, k)
+  print(k)
+  print(cluster)
+
+
+def doSimulation():
+  cluster = set()
+  cluster.add((0, 0))
+  doBatch(cluster)
 
 
 if __name__ == "__main__":
-  main() 
+  doSimulation()
