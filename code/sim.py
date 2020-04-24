@@ -64,7 +64,8 @@ def createWalk(rb, k, start):
 
 def createStart(rb):
   deg = random.randint(1, 360)
-  return (rb * int(math.sin(deg)), rb * int(math.cos(deg)))
+  startpos = (int(rb * math.sin(deg)), int(rb * math.cos(deg)))
+  return startpos
 
 
 def step2(rb, k, w):
@@ -96,21 +97,44 @@ def step4(res, walks):
 
 
 def step5(cluster, res, walks, k):
+  rc = 0
   k = k if k is not None else len(res)
   for i in range(k):
     if res[i] is not None:
-      cluster.add(walks[i][res[i]])
-
+      tup = walks[i][res[i]]
+      this_rc = int(math.sqrt(tup[0] * tup[0] + tup[1] * tup[1]))
+      if (this_rc > rc): 
+        rc = this_rc
+      cluster.add(tup)
+  return rc 
 
 def doBatch(cluster):
   rc = 1
   M = 1
-  (rb, k, w) = step1(rc, M)
-  walks = step2(rb, k, w)
-  res = step3(walks, cluster)
-  k = step4(res, walks)
-  step5(cluster, res, walks, k)
+  iters = 0
+  while ( iters < 10) : 
+    (rb, k, w) = step1(rc, M)
+    walks = step2(rb, k, w)
+    res = step3(walks, cluster)
+    k = step4(res, walks)
+    rc = step5(cluster, res, walks, k)
+    M = len(cluster)
+    iters += 1
   print(cluster)
+  print("rc = " + str(rc) + " || M = " + str(M))
+  visualize_cluster(cluster, rc)
+
+
+def visualize_cluster(cluster, radius): 
+  diameter = 2 * radius + 1
+  adjusted_rad = radius
+  Matrix = [["-" for x in range(diameter)] for y in range(diameter)]
+  for (a,b) in cluster:     
+    Matrix[a + adjusted_rad][b + adjusted_rad] = "*"
+  Matrix[adjusted_rad][adjusted_rad] = "C"
+
+  for line in Matrix: 
+    print(line)
 
 
 def doSimulation():
