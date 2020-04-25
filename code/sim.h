@@ -20,8 +20,8 @@ typedef struct {
 } param_t;
 
 typedef struct {
-    int x;
-    int y;
+    int i;
+    int j;
 } coord_t;
 
 cluster_t *init_graph(int rc);

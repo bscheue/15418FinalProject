@@ -13,7 +13,7 @@ int choose_k(int rc) { return KFACTOR * rc * rc; }
 // number of walkers
 int choose_w(int M) { return (int)(MFACTOR * pow(M, 1 + MEPSILON)); }
 
-bool equal_coord(coord_t a, coord_t b) { return a.x == b.x && a.y == b.y; }
+bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
 cluster_t *init_graph(int radius) {
   int diameter = 2 * radius + 1;
@@ -35,8 +35,8 @@ cluster_t *init_graph(int radius) {
 coord_t create_start(int rb, random_t *seed) {
   float deg = next_random_float(seed, 3.1415);
   coord_t res;
-  res.x = rb * sin(deg);
-  res.y = rb * cos(deg);
+  res.i = rb * sin(deg);
+  res.j = rb * cos(deg);
   return res;
 }
 
@@ -47,20 +47,20 @@ void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
     int dir = round(f + 1);
     switch (dir) {
     case 1:
-      walk[i].x = 1;
-      walk[i].y = 0;
+      walk[i].i = 1;
+      walk[i].j = 0;
       break;
     case 2:
-      walk[i].x = 0;
-      walk[i].y = 1;
+      walk[i].i = 0;
+      walk[i].j = 1;
       break;
     case 3:
-      walk[i].x = -1;
-      walk[i].y = 0;
+      walk[i].i = -1;
+      walk[i].j = 0;
       break;
     case 4:
-      walk[i].x = 0;
-      walk[i].y = -1;
+      walk[i].i = 0;
+      walk[i].j = -1;
       break;
     default:
       printf("mistake\n");
@@ -68,13 +68,13 @@ void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
   }
 
   // compute prefix sum
-  int accx = start.x;
-  int accy = start.y;
+  int acci = start.i;
+  int accj = start.j;
   for (i = 0; i < k; i++) {
-    accx += walk[i].x;
-    accy += walk[i].y;
-    walk[i].x = accx;
-    walk[i].y = accy;
+    acci += walk[i].i;
+    accj += walk[i].j;
+    walk[i].i = acci;
+    walk[i].j = accj;
   }
 }
 
@@ -107,8 +107,8 @@ coord_t **step_2(param_t *params, random_t *seeds) {
 }
 
 bool is_sticky(coord_t loc, cluster_t *cluster) {
-  int locx = loc.x + cluster->radius;
-  int locy = loc.y + cluster->radius;
+  int locx = loc.i + cluster->radius;
+  int locy = loc.j + cluster->radius;
   bool **matrix = cluster->matrix;
   return (matrix[locx - 1][locy] || matrix[locx + 1][locy]
           || matrix[locx][locy - 1] || matrix[locx][locy + 1]);
@@ -158,13 +158,12 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
     }
 
     coord_t tup = walks[i][res[i]];
-    int this_rc = round(sqrt(tup.x * tup.x + tup.y * tup.y));
-    if (cluster->matrix[tup.x + cluster->radius][tup.y + cluster->radius] ==
-        0) {
-      cluster->matrix[tup.x + cluster->radius][tup.y + cluster->radius] = 1;
+    int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
+    if (!cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius]) {
+      cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] = true;
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
-      printf("new particle = %d: x = %d, y = %d || rc = %d\n", i, tup.x, tup.y,
+      printf("new particle = %d: i = %d, j = %d || rc = %d\n", i, tup.i, tup.j,
              rc);
     }
   }
@@ -207,7 +206,7 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
     rc = thisrc > rc ? thisrc : rc;
     /* printf("after rc = %d || M = %d\n", rc, M); */
     iters++;
-    view_cluster(cluster);
+    /* view_cluster(cluster); */
   }
 }
 
@@ -227,6 +226,6 @@ int main(int argc, char *argv[]) {
   cluster_t *g = init_graph(MAXIMUM_RAD);
   random_t *seeds = init_seeds();
   do_batch(g, seeds);
-  /* view_cluster(g); */
+  view_cluster(g);
   return 0;
 }
