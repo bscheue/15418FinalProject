@@ -5,7 +5,8 @@
 
 typedef struct {
 
-    int rc; // radius 
+    int radius; // radius 
+    int diameter; 
 
     char **matrix; // matrix
 
