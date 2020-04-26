@@ -3,8 +3,8 @@ CC=gcc
 CFLAGS=-g -O3 -Wall -DDEBUG=$(DEBUG)
 LDFLAGS= -lm
 
-CFILES = rutil.c sim.c
-HFILES = rutil.h
+CFILES = rutil.c image.c sim.c
+HFILES = rutil.h image.h
 
 all: crun-seq
 

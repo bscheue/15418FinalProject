@@ -1,17 +1,19 @@
 #include "sim.h"
 #include "rutil.h"
+#include "image.h"
 
 #define MAX_MASS 10
-#define MAXIMUM_RAD 30
-#define KFACTOR 3
-#define MFACTOR 3
+#define MAXIMUM_RAD 40
+#define KFACTOR 10
+#define MFACTOR 0.1
 #define MEPSILON 0.01
 
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
 // number of walkers
-int choose_w(int M) { return (int)(MFACTOR * pow(M, 1 + MEPSILON)); }
+int choose_w(int M) { return 5 + (MFACTOR * pow(M, 1 + MEPSILON)); }
+/* int choose_w(int M) { return 5; } */
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
@@ -33,12 +35,12 @@ cluster_t *init_graph(int radius) {
 }
 
 coord_t create_start(int rb, random_t *seed) {
-  float deg = next_random_float(seed, 3.1415);
+  float deg = next_random_float(seed, 3.16);
   coord_t res;
-  printf("resi before = %d, j = %d\n", res.i, res.j);
+  /* printf("deg %lf\n", deg); */
   res.i = (int)(rb * sin(deg));
   res.j = (int)(rb * cos(deg));
-  printf("=== resi = %d, resj = %d, resi calc = %d, resj calc = %d\n", res.i, res.j, (int)(rb * sin(deg)), (int)(rb * cos(deg)));
+  /* printf("=== resi = %d, resj = %d\n", res.i, res.j); */
   return res;
 }
 
@@ -179,8 +181,8 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
       cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] = true;
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
-      printf("new particle = %d: i = %d, j = %d || rc = %d || resi = %d\n", i, tup.i, tup.j,
-             rc, res[i]);
+      /* printf("new particle = %d: i = %d, j = %d || rc = %d || resi = %d\n", i, tup.i, tup.j, */
+      /*        rc, res[i]); */
     }
   }
   return cluster->radius < rc ? cluster->radius : rc;
@@ -202,11 +204,11 @@ void view_cluster(cluster_t *g) {
 void do_batch(cluster_t *cluster, random_t *seeds) {
   int rc = 1;
   int M = 1;
-  int MAXITERS = 15;
+  int MAXITERS = 800;
   int iters = 0;
   while (iters < MAXITERS) {
     // while (M < MAX_MASS) {
-    printf("====== iter start (rc = %d) ======\n", rc);
+    /* printf("====== iter start (rc = %d) ======\n", rc); */
     param_t *params = step_1(rc, M);
     // printf("step 1 completed\n");
     coord_t **walks = step_2(params, seeds);
@@ -239,9 +241,10 @@ random_t *init_seeds() {
 }
 
 int main(int argc, char *argv[]) {
-  cluster_t *g = init_graph(MAXIMUM_RAD);
+  cluster_t *cluster = init_graph(MAXIMUM_RAD);
   random_t *seeds = init_seeds();
-  do_batch(g, seeds);
-  view_cluster(g);
+  do_batch(cluster, seeds);
+  view_cluster(cluster);
+  generate_image(cluster->matrix, cluster->diameter, cluster->radius);
   return 0;
 }
