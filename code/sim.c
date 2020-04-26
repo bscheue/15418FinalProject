@@ -3,19 +3,19 @@
 #include "image.h"
 
 #define TAU 6.28
-#define MAX_MASS 10
+#define MAX_MASS 5000
 #define MAX_RAD 300
 #define KFACTOR 10
 #define MFACTOR 0.1
 #define MEPSILON 0.01
-#define MINWALKERS 5
-#define MAXITERS 300
+#define MIN_WALKERS 5
+#define MAX_ITERS 300
 
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
 // number of walkers
-int choose_w(int M) { return MINWALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
+int choose_w(int M) { return MIN_WALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
@@ -202,7 +202,7 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
   int rc = 1;
   int M = 1;
   int iters = 0;
-  while (iters < MAXITERS) {
+  while (M < MAX_MASS) {
     param_t *params = step_1(rc, M);
     coord_t **walks = step_2(params, seeds);
     int *res = step_3(walks, cluster, params);
