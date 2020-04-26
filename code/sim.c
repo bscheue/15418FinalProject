@@ -2,18 +2,20 @@
 #include "rutil.h"
 #include "image.h"
 
+#define TAU 6.28
 #define MAX_MASS 10
-#define MAXIMUM_RAD 40
+#define MAXIMUM_RAD 20
 #define KFACTOR 10
 #define MFACTOR 0.1
 #define MEPSILON 0.01
+#define MINWALKERS 5
+#define MAXITERS 15
 
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
 // number of walkers
-int choose_w(int M) { return 5 + (MFACTOR * pow(M, 1 + MEPSILON)); }
-/* int choose_w(int M) { return 5; } */
+int choose_w(int M) { return MINWALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
@@ -26,43 +28,44 @@ cluster_t *init_graph(int radius) {
   g->radius = radius;
   g->diameter = diameter;
   int i;
-  for (i = 0; i < diameter; i++) {
+  for (i = 0; i < diameter; i++)
     g->matrix[i] = calloc(diameter, sizeof(bool));
-  }
+
+  // start off with just the center point in the cluster
   g->matrix[radius][radius] = 1;
 
   return g;
 }
 
+// return coordinate of starting point for particle around circle of size radius
 coord_t create_start(int rb, random_t *seed) {
-  float deg = next_random_float(seed, 6.28);
+  float deg = next_random_float(seed, TAU);
   coord_t res;
-  /* printf("deg %lf\n", deg); */
   res.i = (int)(rb * sin(deg));
   res.j = (int)(rb * cos(deg));
-  /* printf("=== resi = %d, resj = %d\n", res.i, res.j); */
   return res;
 }
 
-void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
+// create a walk of length k
+void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   int i;
   for (i = 1; i < k; i++) {
     random_t f = next_random_float(seed, 4);
-    int dir = round(f + 1);
+    int dir = round(f);
     switch (dir) {
-    case 1:
+    case 0:
       walk[i].i = 1;
       walk[i].j = 0;
       break;
-    case 2:
+    case 1:
       walk[i].i = 0;
       walk[i].j = 1;
       break;
-    case 3:
+    case 2:
       walk[i].i = -1;
       walk[i].j = 0;
       break;
-    case 4:
+    case 3:
       walk[i].i = 0;
       walk[i].j = -1;
       break;
@@ -84,6 +87,7 @@ void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
   }
 }
 
+// initialize the starting radius, number of walkers, and walk length
 param_t *step_1(int rc, int M) {
   param_t *ret = malloc(sizeof(param_t));
   ret->rb = rc + 2;
@@ -92,33 +96,24 @@ param_t *step_1(int rc, int M) {
   return ret;
 }
 
-void show_walk(int idx, coord_t *walk, int length) {
-  /* int i; */
-  /* printf("walk i = %d : ", idx); */
-  /* for (i = 0; i < length; i++) { */
-     /* printf("(%d, %d),", walk[i].i, walk[i].j); */
-  /* } */
-  /* printf("\n"); */
-}
-
+// create each walk
 coord_t **step_2(param_t *params, random_t *seeds) {
   int i;
   int w = params->w;
   coord_t **all_walks = malloc(sizeof(coord_t *) * w);
   for (i = 0; i < w; i++) {
-    all_walks[i] = malloc(sizeof(coord_t) * params->k); // k steps
-    create_walk(all_walks[i], params->rb, params->k,
+    all_walks[i] = malloc(sizeof(coord_t) * params->k);
+    create_walk(all_walks[i], params->k,
                 create_start(params->rb, seeds + i), seeds + i);
-    show_walk(i, all_walks[i], params->k);
   }
   return all_walks;
 }
 
+// return true iff particle sticks to the cluster
 bool is_sticky(coord_t loc, cluster_t *cluster) {
   int locx = loc.i + cluster->radius;
   int locy = loc.j + cluster->radius;
   bool **matrix = cluster->matrix;
-  /* printf("diam %d\n", cluster->diametr); */
   return
     locx >= 1 && locx < cluster->diameter - 1
     && locy >= 1 && locy < cluster->diameter - 1
@@ -128,16 +123,15 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
     ||  matrix[locx][locy + 1]);
 }
 
+// return the points where each particle sticks to the cluster (-1 if it doesn't stick)
 int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
   int i, j;
   int *res = malloc(sizeof(int) * params->w);
   memset(res, -1, params->w * sizeof(int));
   for (i = 0; i < params->w; i++) {
     for (j = 0; j < params->k; j++) {
-      coord_t loc = walks[i][j];
-      if (is_sticky(loc, cluster)) {
+      if (is_sticky(walks[i][j], cluster)) {
         res[i] = j;
-        /* printf("^ particle %d is sticky at step %d \n", i, j); */
         break;
       }
     }
@@ -145,6 +139,9 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
   return res;
 }
 
+// return the first particle id where two particles interfere
+// takes the higher of the two ids
+// returns -1 if there is no interference
 int step_4(int *res, coord_t **walks, param_t *params) {
   int i, j, k;
   for (i = 0; i < params->w; i++) {
@@ -152,37 +149,31 @@ int step_4(int *res, coord_t **walks, param_t *params) {
       if (res[j] == -1)
         break;
       for (k = 0; k < params->k; k++) {
-        if (equal_coord(walks[j][res[j]], walks[i][k])) {
-          /* printf("interference at particle %d\n", i); */
+        if (equal_coord(walks[j][res[j]], walks[i][k]))
           return i;
-        }
       }
     }
   }
-  /* printf("NO INTERFERENCE\n"); */
-
   return -1;
 }
 
+// add particles that stick to the cluster
 int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
            int k, int *M) {
   int i;
   int rc = 0;
+  // if k is -1 then every particle that sticks should be added to the cluster
   k = k == -1 ? params->w : k;
-
   for (i = 0; i < k; i++) {
     if (res[i] == -1) {
       continue;
     }
-
     coord_t tup = walks[i][res[i]];
     int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
     if (cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] == 0) {
       cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] = true;
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
-      /* printf("new particle = %d: i = %d, j = %d || rc = %d || resi = %d\n", i, tup.i, tup.j, */
-      /*        rc, res[i]); */
     }
   }
   return cluster->radius < rc ? cluster->radius : rc;
@@ -204,27 +195,15 @@ void view_cluster(cluster_t *g) {
 void do_batch(cluster_t *cluster, random_t *seeds) {
   int rc = 1;
   int M = 1;
-  int MAXITERS = 800;
   int iters = 0;
   while (iters < MAXITERS) {
-    // while (M < MAX_MASS) {
-    /* printf("====== iter start (rc = %d) ======\n", rc); */
     param_t *params = step_1(rc, M);
-    // printf("step 1 completed\n");
     coord_t **walks = step_2(params, seeds);
-    // printf("step 2 completed\n");
-
     int *res = step_3(walks, cluster, params);
-    // printf("step 3 completed\n");
-
     int k = step_4(res, walks, params);
-    // printf("step 4 completed\n");
-
     int thisrc = step_5(cluster, res, walks, params, k, &M);
     rc = thisrc > rc ? thisrc : rc;
-    /* printf("after rc = %d || M = %d\n", rc, M); */
     iters++;
-    /* view_cluster(cluster); */
   }
 }
 

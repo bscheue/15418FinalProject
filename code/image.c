@@ -1,6 +1,7 @@
 /*
  * code (with minor changes) taken from
  * https://stackoverflow.com/questions/2654480/writing-bmp-image-in-pure-c-c-without-other-libraries
+ * follow posted by Minhas Kamal
  */
 
 
@@ -17,16 +18,12 @@ unsigned char* createBitmapInfoHeader(int height, int width);
 
 
 void generate_image(bool **matrix, int n, int center){
-    /* int height = 341; */
-    /* int width = 753; */
     unsigned char image[n][n][bytesPerPixel];
-    char* imageFileName = "bitmapImage.bmp";
+    char* imageFileName = "result.bmp";
 
     int i, j;
     for(i=0; i<n; i++){
         for(j=0; j<n; j++){
-            /* if (matrix[i][j]) */
-            /*   printf("pixel %d %d\n", i, j); */
             if (i == center && j == center) {
               image[i][j][0] = 255;
               image[i][j][1] = 0;
@@ -46,7 +43,6 @@ void generate_image(bool **matrix, int n, int center){
     }
 
     generateBitmapImage((unsigned char *)image, n, n, imageFileName);
-    printf("Image generated!!");
 }
 
 
