@@ -112,7 +112,7 @@ def doBatch(cluster):
   rc = 1
   M = 1
   iters = 0
-  while ( iters < 10) : 
+  while ( iters < 20) : 
     (rb, k, w) = step1(rc, M)
     walks = step2(rb, k, w)
     res = step3(walks, cluster)
