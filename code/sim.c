@@ -35,14 +35,16 @@ cluster_t *init_graph(int radius) {
 coord_t create_start(int rb, random_t *seed) {
   float deg = next_random_float(seed, 3.1415);
   coord_t res;
-  res.i = rb * sin(deg);
-  res.j = rb * cos(deg);
+  printf("resi before = %d, j = %d\n", res.i, res.j);
+  res.i = (int)(rb * sin(deg));
+  res.j = (int)(rb * cos(deg));
+  printf("=== resi = %d, resj = %d, resi calc = %d, resj calc = %d\n", res.i, res.j, (int)(rb * sin(deg)), (int)(rb * cos(deg)));
   return res;
 }
 
 void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
   int i;
-  for (i = 0; i < k; i++) {
+  for (i = 1; i < k; i++) {
     random_t f = next_random_float(seed, 4);
     int dir = round(f + 1);
     switch (dir) {
@@ -70,7 +72,9 @@ void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
   // compute prefix sum
   int acci = start.i;
   int accj = start.j;
-  for (i = 0; i < k; i++) {
+  walk[0].i = acci; 
+  walk[0].j = accj; 
+  for (i = 1; i < k; i++) {
     acci += walk[i].i;
     accj += walk[i].j;
     walk[i].i = acci;
@@ -86,11 +90,13 @@ param_t *step_1(int rc, int M) {
   return ret;
 }
 
-void show_walk(coord_t *walk, int length) {
+void show_walk(int idx, coord_t *walk, int length) {
   int i;
+  printf("walk i = %d : ", idx); 
   for (i = 0; i < length; i++) {
-    /* printf("walk i = %d : x = %d , y = %d \n", i, walk[i].x, walk[i].y); */
+     printf("(%d, %d),", walk[i].i, walk[i].j); 
   }
+  printf("\n");
 }
 
 coord_t **step_2(param_t *params, random_t *seeds) {
@@ -101,7 +107,7 @@ coord_t **step_2(param_t *params, random_t *seeds) {
     all_walks[i] = malloc(sizeof(coord_t) * params->k); // k steps
     create_walk(all_walks[i], params->rb, params->k,
                 create_start(params->rb, seeds + i), seeds + i);
-    show_walk(all_walks[i], params->k);
+    show_walk(i, all_walks[i], params->k);
   }
   return all_walks;
 }
@@ -110,8 +116,11 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
   int locx = loc.i + cluster->radius;
   int locy = loc.j + cluster->radius;
   bool **matrix = cluster->matrix;
-  return (matrix[locx - 1][locy] || matrix[locx + 1][locy]
-          || matrix[locx][locy - 1] || matrix[locx][locy + 1]);
+  if (matrix[locx - 1][locy] == 1 || matrix[locx + 1][locy] == 1
+          || matrix[locx][locy - 1] == 1 || matrix[locx][locy + 1] == 1) {
+    return true; 
+  }
+  return false; 
 }
 
 int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
@@ -123,6 +132,7 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
       coord_t loc = walks[i][j];
       if (is_sticky(loc, cluster)) {
         res[i] = j;
+        printf("^ particle %d is sticky at step %d \n", i, j);
         break;
       }
     }
@@ -138,11 +148,14 @@ int step_4(int *res, coord_t **walks, param_t *params) {
         break;
       for (k = 0; k < params->k; k++) {
         if (equal_coord(walks[j][res[j]], walks[i][k])) {
+          printf("interference at particle %d\n", i);
           return i;
         }
       }
     }
   }
+  printf("NO INTERFERENCE\n");
+
   return -1;
 }
 
@@ -159,12 +172,12 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
 
     coord_t tup = walks[i][res[i]];
     int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
-    if (!cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius]) {
+    if (cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] == 0) {
       cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] = true;
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
-      printf("new particle = %d: i = %d, j = %d || rc = %d\n", i, tup.i, tup.j,
-             rc);
+      printf("new particle = %d: i = %d, j = %d || rc = %d || resi = %d\n", i, tup.i, tup.j,
+             rc, res[i]);
     }
   }
   return cluster->radius < rc ? cluster->radius : rc;
@@ -174,9 +187,9 @@ void view_cluster(cluster_t *g) {
   int i, j;
   for (i = 0; i < g->diameter; i++) {
     for (j = 0; j < g->diameter; j++) {
-      if (i == g->radius && j == g->radius) printf("C");
-      else if (g->matrix[i][j] == 0) printf("-");
-      else printf("+");
+      if (i == g->radius && j == g->radius) printf("C ");
+      else if (g->matrix[i][j] == 0) printf("- ");
+      else printf("+ ");
     }
     printf("\n");
   }
@@ -186,7 +199,7 @@ void view_cluster(cluster_t *g) {
 void do_batch(cluster_t *cluster, random_t *seeds) {
   int rc = 1;
   int M = 1;
-  int MAXITERS = 3;
+  int MAXITERS = 10;
   int iters = 0;
   while (iters < MAXITERS) {
     // while (M < MAX_MASS) {
