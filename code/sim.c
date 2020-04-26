@@ -35,7 +35,7 @@ cluster_t *init_graph(int radius) {
 }
 
 coord_t create_start(int rb, random_t *seed) {
-  float deg = next_random_float(seed, 3.16);
+  float deg = next_random_float(seed, 6.28);
   coord_t res;
   /* printf("deg %lf\n", deg); */
   res.i = (int)(rb * sin(deg));
