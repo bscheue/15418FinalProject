@@ -4,12 +4,12 @@
 
 #define TAU 6.28
 #define MAX_MASS 10
-#define MAXIMUM_RAD 20
+#define MAX_RAD 300
 #define KFACTOR 10
 #define MFACTOR 0.1
 #define MEPSILON 0.01
 #define MINWALKERS 5
-#define MAXITERS 15
+#define MAXITERS 300
 
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
@@ -90,7 +90,7 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
 // initialize the starting radius, number of walkers, and walk length
 param_t *step_1(int rc, int M) {
   param_t *ret = malloc(sizeof(param_t));
-  ret->rb = rc + 2;
+  ret->rb = rc + 3;
   ret->k = choose_k(rc);
   ret->w = choose_w(M);
   return ret;
@@ -120,7 +120,12 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
     && (matrix[locx - 1][locy]
     ||  matrix[locx + 1][locy]
     ||  matrix[locx][locy - 1]
-    ||  matrix[locx][locy + 1]);
+    ||  matrix[locx][locy + 1]
+    ||  matrix[locx + 1][locy + 1]
+    ||  matrix[locx + 1][locy - 1]
+    ||  matrix[locx - 1][locy + 1]
+    ||  matrix[locx - 1][locy - 1]
+    );
 }
 
 // return the points where each particle sticks to the cluster (-1 if it doesn't stick)
@@ -193,6 +198,7 @@ void view_cluster(cluster_t *g) {
 
 
 void do_batch(cluster_t *cluster, random_t *seeds) {
+  int i;
   int rc = 1;
   int M = 1;
   int iters = 0;
@@ -204,11 +210,16 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
     int thisrc = step_5(cluster, res, walks, params, k, &M);
     rc = thisrc > rc ? thisrc : rc;
     iters++;
+    for (i = 0; i < params->w; i++)
+      free(walks[i]);
+    free(walks);
+    free(res);
+    free(params);
   }
 }
 
 random_t *init_seeds() {
-  int seeds_size = 100000;
+  int seeds_size = KFACTOR * KFACTOR * MAX_RAD * MAX_RAD;
   random_t *seeds = malloc(sizeof(random_t) * seeds_size);
   random_t *seedseed = malloc(sizeof(random_t));
   *seedseed = DEFAULTSEED;
@@ -220,10 +231,9 @@ random_t *init_seeds() {
 }
 
 int main(int argc, char *argv[]) {
-  cluster_t *cluster = init_graph(MAXIMUM_RAD);
+  cluster_t *cluster = init_graph(MAX_RAD);
   random_t *seeds = init_seeds();
   do_batch(cluster, seeds);
-  view_cluster(cluster);
   generate_image(cluster->matrix, cluster->diameter, cluster->radius);
   return 0;
 }
