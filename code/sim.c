@@ -72,8 +72,8 @@ void create_walk(coord_t *walk, int rb, int k, coord_t start, random_t *seed) {
   // compute prefix sum
   int acci = start.i;
   int accj = start.j;
-  walk[0].i = acci; 
-  walk[0].j = accj; 
+  walk[0].i = acci;
+  walk[0].j = accj;
   for (i = 1; i < k; i++) {
     acci += walk[i].i;
     accj += walk[i].j;
@@ -91,12 +91,12 @@ param_t *step_1(int rc, int M) {
 }
 
 void show_walk(int idx, coord_t *walk, int length) {
-  int i;
-  printf("walk i = %d : ", idx); 
-  for (i = 0; i < length; i++) {
-     printf("(%d, %d),", walk[i].i, walk[i].j); 
-  }
-  printf("\n");
+  /* int i; */
+  /* printf("walk i = %d : ", idx); */
+  /* for (i = 0; i < length; i++) { */
+     /* printf("(%d, %d),", walk[i].i, walk[i].j); */
+  /* } */
+  /* printf("\n"); */
 }
 
 coord_t **step_2(param_t *params, random_t *seeds) {
@@ -116,23 +116,26 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
   int locx = loc.i + cluster->radius;
   int locy = loc.j + cluster->radius;
   bool **matrix = cluster->matrix;
-  if (matrix[locx - 1][locy] == 1 || matrix[locx + 1][locy] == 1
-          || matrix[locx][locy - 1] == 1 || matrix[locx][locy + 1] == 1) {
-    return true; 
-  }
-  return false; 
+  /* printf("diam %d\n", cluster->diametr); */
+  return
+    locx >= 1 && locx < cluster->diameter - 1
+    && locy >= 1 && locy < cluster->diameter - 1
+    && (matrix[locx - 1][locy]
+    ||  matrix[locx + 1][locy]
+    ||  matrix[locx][locy - 1]
+    ||  matrix[locx][locy + 1]);
 }
 
 int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
   int i, j;
-  int *res = malloc(sizeof(int) * params->k);
-  memset(res, -1, params->k * sizeof(int));
+  int *res = malloc(sizeof(int) * params->w);
+  memset(res, -1, params->w * sizeof(int));
   for (i = 0; i < params->w; i++) {
     for (j = 0; j < params->k; j++) {
       coord_t loc = walks[i][j];
       if (is_sticky(loc, cluster)) {
         res[i] = j;
-        printf("^ particle %d is sticky at step %d \n", i, j);
+        /* printf("^ particle %d is sticky at step %d \n", i, j); */
         break;
       }
     }
@@ -148,13 +151,13 @@ int step_4(int *res, coord_t **walks, param_t *params) {
         break;
       for (k = 0; k < params->k; k++) {
         if (equal_coord(walks[j][res[j]], walks[i][k])) {
-          printf("interference at particle %d\n", i);
+          /* printf("interference at particle %d\n", i); */
           return i;
         }
       }
     }
   }
-  printf("NO INTERFERENCE\n");
+  /* printf("NO INTERFERENCE\n"); */
 
   return -1;
 }
@@ -199,7 +202,7 @@ void view_cluster(cluster_t *g) {
 void do_batch(cluster_t *cluster, random_t *seeds) {
   int rc = 1;
   int M = 1;
-  int MAXITERS = 10;
+  int MAXITERS = 15;
   int iters = 0;
   while (iters < MAXITERS) {
     // while (M < MAX_MASS) {
