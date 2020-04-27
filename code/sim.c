@@ -2,6 +2,19 @@
 #include "rutil.h"
 #include "image.h"
 
+#ifndef OMP
+#define OMP 0
+#endif
+
+#if OMP
+#include <omp.h>
+#else
+#include "fake_omp.h"
+#endif
+
+#include "cycletimer.h"
+#include "instrument.h"
+
 #define TAU 6.28
 #define MAX_MASS 5000
 #define MAX_RAD 300
@@ -10,6 +23,9 @@
 #define MEPSILON 0.01
 #define MIN_WALKERS 5
 #define MAX_ITERS 300
+
+#define TRACKING true
+
 
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
@@ -101,6 +117,9 @@ coord_t **step_2(param_t *params, random_t *seeds) {
   int i;
   int w = params->w;
   coord_t **all_walks = malloc(sizeof(coord_t *) * w);
+#if OMP
+#pragma omp parallel for
+#endif
   for (i = 0; i < w; i++) {
     all_walks[i] = malloc(sizeof(coord_t) * params->k);
     create_walk(all_walks[i], params->k,
@@ -204,10 +223,23 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
   int iters = 0;
   while (M < MAX_MASS) {
     param_t *params = step_1(rc, M);
+
+    START_ACTIVITY(ACTIVITY_CREATE_WALKS);
     coord_t **walks = step_2(params, seeds);
+    FINISH_ACTIVITY(ACTIVITY_CREATE_WALKS);
+
+    START_ACTIVITY(ACTIVITY_FIND_STICKING);
     int *res = step_3(walks, cluster, params);
+    FINISH_ACTIVITY(ACTIVITY_FIND_STICKING);
+
+    START_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
     int k = step_4(res, walks, params);
+    FINISH_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
+
+    START_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
     int thisrc = step_5(cluster, res, walks, params, k, &M);
+    FINISH_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
+
     rc = thisrc > rc ? thisrc : rc;
     iters++;
     for (i = 0; i < params->w; i++)
@@ -224,16 +256,18 @@ random_t *init_seeds() {
   random_t *seedseed = malloc(sizeof(random_t));
   *seedseed = DEFAULTSEED;
   int i;
-  for (i = 0; i < seeds_size; i++) {
+  for (i = 0; i < seeds_size; i++)
     seeds[i] = (random_t)next_random_float(seedseed, seeds_size);
-  }
+
   return seeds;
 }
 
 int main(int argc, char *argv[]) {
+  track_activity(TRACKING);
   cluster_t *cluster = init_graph(MAX_RAD);
   random_t *seeds = init_seeds();
   do_batch(cluster, seeds);
   generate_image(cluster->matrix, cluster->diameter, cluster->radius);
+  SHOW_ACTIVITY(stderr, TRACKING);
   return 0;
 }
