@@ -4,7 +4,7 @@ OMP=-fopenmp -DOMP
 CFLAGS=-g -O3 -Wall -DDEBUG=$(DEBUG)
 LDFLAGS= -lm
 
-CFILES = cycletimer.c instrument.c rutil.c image.c sim.c
+CFILES = cycletimer.c instrument.c rutil.c image.c sim.c crun.c
 HFILES = cycletimer.h instrument.h rutil.h image.h
 
 all: crun-seq crun-omp

@@ -1,4 +1,9 @@
-#include "sim.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <stdbool.h>
+
+
 #include "rutil.h"
 #include "image.h"
 
@@ -27,6 +32,26 @@
 #define TRACKING true
 
 
+typedef struct {
+
+    int radius; // radius
+    int diameter;
+
+    bool **matrix; // matrix
+
+} cluster_t;
+
+typedef struct {
+    int rb;
+    int k;
+    int w;
+} param_t;
+
+typedef struct {
+    int i;
+    int j;
+} coord_t;
+
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
@@ -35,7 +60,7 @@ int choose_w(int M) { return MIN_WALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
-cluster_t *init_graph(int radius) {
+cluster_t *init_cluster(int radius) {
   int diameter = 2 * radius + 1;
   cluster_t *g = malloc(sizeof(cluster_t));
   if (g == NULL)
@@ -215,13 +240,12 @@ void view_cluster(cluster_t *g) {
   }
 }
 
-
-void do_batch(cluster_t *cluster, random_t *seeds) {
+void do_batch(cluster_t *cluster, random_t *seeds, int max_radius) {
   int i;
   int rc = 1;
   int M = 1;
   int iters = 0;
-  while (M < MAX_MASS) {
+  while (rc < max_radius) {
     param_t *params = step_1(rc, M);
 
     START_ACTIVITY(ACTIVITY_CREATE_WALKS);
@@ -250,8 +274,8 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
   }
 }
 
-random_t *init_seeds() {
-  int seeds_size = KFACTOR * KFACTOR * MAX_RAD * MAX_RAD;
+random_t *init_seeds(random_t seed, int max_radius) {
+  int seeds_size = KFACTOR * KFACTOR * max_radius * max_radius;
   random_t *seeds = malloc(sizeof(random_t) * seeds_size);
   random_t *seedseed = malloc(sizeof(random_t));
   *seedseed = DEFAULTSEED;
@@ -262,12 +286,17 @@ random_t *init_seeds() {
   return seeds;
 }
 
-int main(int argc, char *argv[]) {
+void simulate(bool tracking, char* image_name, char *test_output_name, int max_radius, random_t seed) {
   track_activity(TRACKING);
-  cluster_t *cluster = init_graph(MAX_RAD);
-  random_t *seeds = init_seeds();
-  do_batch(cluster, seeds);
-  generate_image(cluster->matrix, cluster->diameter, cluster->radius);
+  cluster_t *cluster = init_cluster(max_radius);
+  random_t *seeds = init_seeds(seed, max_radius);
+  do_batch(cluster, seeds, max_radius);
+
+  if (image_name != NULL)
+    generate_image(cluster->matrix, cluster->diameter, cluster->radius);
+  if (test_output_name != NULL)
+    // should change this line to outputting to file
+    generate_image(cluster->matrix, cluster->diameter, cluster->radius);
+
   SHOW_ACTIVITY(stderr, TRACKING);
-  return 0;
 }
