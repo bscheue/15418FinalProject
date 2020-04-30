@@ -3,9 +3,10 @@
 #include <math.h>
 #include <stdbool.h>
 
-
 #include "rutil.h"
 #include "image.h"
+#include "cycletimer.h"
+#include "instrument.h"
 
 #ifndef OMP
 #define OMP 0
@@ -16,9 +17,6 @@
 #else
 #include "fake_omp.h"
 #endif
-
-#include "cycletimer.h"
-#include "instrument.h"
 
 #define TAU 6.28
 #define MAX_MASS 5000
@@ -56,7 +54,7 @@ typedef struct {
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
 // number of walkers
-int choose_w(int M) { return MIN_WALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
+int choose_w(int M) { return MIN_WALKERS + MFACTOR * pow(M, 1 + MEPSILON); }
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
@@ -228,23 +226,34 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
   return cluster->radius < rc ? cluster->radius : rc;
 }
 
-void view_cluster(cluster_t *g) {
+void output_cluster(cluster_t *g, FILE *outfile) {
   int i, j;
   for (i = 0; i < g->diameter; i++) {
     for (j = 0; j < g->diameter; j++) {
-      if (i == g->radius && j == g->radius) printf("C ");
-      else if (g->matrix[i][j] == 0) printf("- ");
-      else printf("+ ");
+      if (g->matrix[i][j] == 0)
+        fprintf(outfile, "%d %d\n", i, j);
     }
-    printf("\n");
   }
 }
 
-void do_batch(cluster_t *cluster, random_t *seeds, int max_radius) {
+random_t *init_seeds(random_t seed, int max_radius) {
+  int seeds_size = KFACTOR * KFACTOR * max_radius * max_radius;
+  random_t *seeds = malloc(sizeof(random_t) * seeds_size);
+  random_t *seedseed = malloc(sizeof(random_t));
+  *seedseed = DEFAULTSEED;
+  int i;
+  for (i = 0; i < seeds_size; i++)
+    seeds[i] = (random_t)next_random_float(seedseed, seeds_size);
+
+  return seeds;
+}
+
+void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius, char *test_output_name) {
   int i;
   int rc = 1;
   int M = 1;
   int iters = 0;
+
   while (rc < max_radius) {
     param_t *params = step_1(rc, M);
 
@@ -274,29 +283,22 @@ void do_batch(cluster_t *cluster, random_t *seeds, int max_radius) {
   }
 }
 
-random_t *init_seeds(random_t seed, int max_radius) {
-  int seeds_size = KFACTOR * KFACTOR * max_radius * max_radius;
-  random_t *seeds = malloc(sizeof(random_t) * seeds_size);
-  random_t *seedseed = malloc(sizeof(random_t));
-  *seedseed = DEFAULTSEED;
-  int i;
-  for (i = 0; i < seeds_size; i++)
-    seeds[i] = (random_t)next_random_float(seedseed, seeds_size);
-
-  return seeds;
-}
-
 void simulate(bool tracking, char* image_name, char *test_output_name, int max_radius, random_t seed) {
-  track_activity(TRACKING);
+  track_activity(tracking);
   cluster_t *cluster = init_cluster(max_radius);
   random_t *seeds = init_seeds(seed, max_radius);
-  do_batch(cluster, seeds, max_radius);
+
+  do_simulation(cluster, seeds, max_radius, test_output_name);
 
   if (image_name != NULL)
-    generate_image(cluster->matrix, cluster->diameter, cluster->radius);
-  if (test_output_name != NULL)
-    // should change this line to outputting to file
-    generate_image(cluster->matrix, cluster->diameter, cluster->radius);
+    generate_image(cluster->matrix, cluster->diameter, cluster->radius, image_name);
 
-  SHOW_ACTIVITY(stderr, TRACKING);
+  if (test_output_name != NULL) {
+    FILE *outfile = fopen(test_output_name, "a+");
+    output_cluster(cluster, outfile);
+    fclose(outfile);
+  }
+
+
+  SHOW_ACTIVITY(stderr, tracking);
 }

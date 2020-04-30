@@ -7,7 +7,7 @@
 
 
 static void usage(char *name) {
-  char *use_string = "[-m MAX_RADIUS] [-o OUTPUT_NAME] [-r IMAGE_NAME] [-s SEED] [-t]";
+  char *use_string = "[-m MAX_RADIUS] [-o TEST_OUTPUT_NAME] [-r IMAGE_NAME] [-s SEED] [-t]";
   printf("Usage: %s %s\n", name, use_string);
 }
 
@@ -15,7 +15,7 @@ void simulate(bool tracking, char* image_name, char *test_output_name, int max_r
 
 int main(int argc, char *argv[]) {
   int c;
-  char *optstring = "hm:r:s:t";
+  char *optstring = "hm:o:r:s:t";
   random_t seed = DEFAULTSEED;
   int max_radius = 10;
   bool tracking = false;

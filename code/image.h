@@ -1,2 +1,2 @@
 
-void generate_image(bool **matrix, int n, int center);
+void generate_image(bool **matrix, int n, int center, char *imageFileName);

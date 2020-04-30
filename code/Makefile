@@ -15,5 +15,14 @@ crun-seq: $(CFILES) $(HFILES)
 crun-omp: $(CFILES) $(HFILES)
 	$(CC) $(CFLAGS) $(OMP) -o crun-omp $(CFILES) $(LDFLAGS)
 
+test: $(CFILES) $(HFILES)
+	./test.sh
+
+benchmark: $(CFILES) $(HFILES)
+	./benchmark.sh
+
+image: $(CFILES) $(HFILES)
+	./crun-omp -m 70 -r "image.bmp"
+
 clean:
-	rm -f crun crun-seq crun-omp
+	rm -rf crun-seq crun-omp test

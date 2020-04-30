@@ -17,9 +17,8 @@ unsigned char* createBitmapFileHeader(int height, int width, int paddingSize);
 unsigned char* createBitmapInfoHeader(int height, int width);
 
 
-void generate_image(bool **matrix, int n, int center){
+void generate_image(bool **matrix, int n, int center, char *imageFileName){
     unsigned char image[n][n][bytesPerPixel];
-    char* imageFileName = "result.bmp";
 
     int i, j;
     for(i=0; i<n; i++){
