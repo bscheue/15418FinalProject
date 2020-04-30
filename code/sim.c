@@ -1,6 +1,12 @@
-#include "sim.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <stdbool.h>
+
 #include "rutil.h"
 #include "image.h"
+#include "cycletimer.h"
+#include "instrument.h"
 
 #ifndef OMP
 #define OMP 0
@@ -11,9 +17,6 @@
 #else
 #include "fake_omp.h"
 #endif
-
-#include "cycletimer.h"
-#include "instrument.h"
 
 #define TAU 6.28
 #define MAX_MASS 5000
@@ -27,15 +30,35 @@
 #define TRACKING true
 
 
+typedef struct {
+
+    int radius; // radius
+    int diameter;
+
+    bool **matrix; // matrix
+
+} cluster_t;
+
+typedef struct {
+    int rb;
+    int k;
+    int w;
+} param_t;
+
+typedef struct {
+    int i;
+    int j;
+} coord_t;
+
 // maximum walk length
 int choose_k(int rc) { return KFACTOR * rc * rc; }
 
 // number of walkers
-int choose_w(int M) { return MIN_WALKERS + (MFACTOR * pow(M, 1 + MEPSILON)); }
+int choose_w(int M) { return MIN_WALKERS + MFACTOR * pow(M, 1 + MEPSILON); }
 
 bool equal_coord(coord_t a, coord_t b) { return a.i == b.i && a.j == b.j; }
 
-cluster_t *init_graph(int radius) {
+cluster_t *init_cluster(int radius) {
   int diameter = 2 * radius + 1;
   cluster_t *g = malloc(sizeof(cluster_t));
   if (g == NULL)
@@ -203,25 +226,35 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
   return cluster->radius < rc ? cluster->radius : rc;
 }
 
-void view_cluster(cluster_t *g) {
+void output_cluster(cluster_t *g, FILE *outfile) {
   int i, j;
   for (i = 0; i < g->diameter; i++) {
     for (j = 0; j < g->diameter; j++) {
-      if (i == g->radius && j == g->radius) printf("C ");
-      else if (g->matrix[i][j] == 0) printf("- ");
-      else printf("+ ");
+      if (g->matrix[i][j] == 0)
+        fprintf(outfile, "%d %d\n", i, j);
     }
-    printf("\n");
   }
 }
 
+random_t *init_seeds(random_t seed, int max_radius) {
+  int seeds_size = KFACTOR * KFACTOR * max_radius * max_radius;
+  random_t *seeds = malloc(sizeof(random_t) * seeds_size);
+  random_t *seedseed = malloc(sizeof(random_t));
+  *seedseed = DEFAULTSEED;
+  int i;
+  for (i = 0; i < seeds_size; i++)
+    seeds[i] = (random_t)next_random_float(seedseed, seeds_size);
 
-void do_batch(cluster_t *cluster, random_t *seeds) {
+  return seeds;
+}
+
+void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius, char *test_output_name) {
   int i;
   int rc = 1;
   int M = 1;
   int iters = 0;
-  while (M < MAX_MASS) {
+
+  while (rc < max_radius) {
     param_t *params = step_1(rc, M);
 
     START_ACTIVITY(ACTIVITY_CREATE_WALKS);
@@ -250,24 +283,22 @@ void do_batch(cluster_t *cluster, random_t *seeds) {
   }
 }
 
-random_t *init_seeds() {
-  int seeds_size = KFACTOR * KFACTOR * MAX_RAD * MAX_RAD;
-  random_t *seeds = malloc(sizeof(random_t) * seeds_size);
-  random_t *seedseed = malloc(sizeof(random_t));
-  *seedseed = DEFAULTSEED;
-  int i;
-  for (i = 0; i < seeds_size; i++)
-    seeds[i] = (random_t)next_random_float(seedseed, seeds_size);
+void simulate(bool tracking, char* image_name, char *test_output_name, int max_radius, random_t seed) {
+  track_activity(tracking);
+  cluster_t *cluster = init_cluster(max_radius);
+  random_t *seeds = init_seeds(seed, max_radius);
 
-  return seeds;
-}
+  do_simulation(cluster, seeds, max_radius, test_output_name);
 
-int main(int argc, char *argv[]) {
-  track_activity(TRACKING);
-  cluster_t *cluster = init_graph(MAX_RAD);
-  random_t *seeds = init_seeds();
-  do_batch(cluster, seeds);
-  generate_image(cluster->matrix, cluster->diameter, cluster->radius);
-  SHOW_ACTIVITY(stderr, TRACKING);
-  return 0;
+  if (image_name != NULL)
+    generate_image(cluster->matrix, cluster->diameter, cluster->radius, image_name);
+
+  if (test_output_name != NULL) {
+    FILE *outfile = fopen(test_output_name, "a+");
+    output_cluster(cluster, outfile);
+    fclose(outfile);
+  }
+
+
+  SHOW_ACTIVITY(stderr, tracking);
 }

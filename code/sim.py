@@ -26,19 +26,20 @@ def prefixsum(xs, start):
 
 # from page 14
 def chooseK(rc):
-  factor = 3
-  return factor * rc**2
+  factor = 10
+  return factor * rc * rc
 
 
 # from page 14
 def chooseW(M):
-  factor = 3
-  epsilon = .01
-  return factor * M**(1 + epsilon)
+  min_walkers = 5
+  mfactor = 0.1
+  mepsilon = .01
+  return min_walkers + factor * M**(1 + epsilon)
 
 
 def step1(rc, M):
-  rb = rc + 2
+  rb = rc + 3
   k = int(chooseK(rc))
   w = int(chooseW(M))
   return (rb, k, w)
@@ -103,16 +104,16 @@ def step5(cluster, res, walks, k):
     if res[i] is not None:
       tup = walks[i][res[i]]
       this_rc = int(math.sqrt(tup[0] * tup[0] + tup[1] * tup[1]))
-      if (this_rc > rc): 
+      if (this_rc > rc):
         rc = this_rc
       cluster.add(tup)
-  return rc 
+  return rc
 
 def doBatch(cluster):
   rc = 1
   M = 1
   iters = 0
-  while ( iters < 20) : 
+  while ( iters < 20) :
     (rb, k, w) = step1(rc, M)
     walks = step2(rb, k, w)
     res = step3(walks, cluster)
@@ -125,15 +126,15 @@ def doBatch(cluster):
   visualize_cluster(cluster, rc)
 
 
-def visualize_cluster(cluster, radius): 
+def visualize_cluster(cluster, radius):
   diameter = 2 * radius + 1
   adjusted_rad = radius
   Matrix = [["-" for x in range(diameter)] for y in range(diameter)]
-  for (a,b) in cluster:     
+  for (a,b) in cluster:
     Matrix[a + adjusted_rad][b + adjusted_rad] = "*"
   Matrix[adjusted_rad][adjusted_rad] = "C"
 
-  for line in Matrix: 
+  for line in Matrix:
     print(line)
 
 
