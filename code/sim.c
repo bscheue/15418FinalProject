@@ -141,13 +141,14 @@ coord_t **step_2(param_t *params, random_t *seeds) {
   int w = params->w;
   coord_t **all_walks = malloc(sizeof(coord_t *) * w);
 #if OMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
 #endif
   for (i = 0; i < w; i++) {
     all_walks[i] = malloc(sizeof(coord_t) * params->k);
     create_walk(all_walks[i], params->k,
                 create_start(params->rb, seeds + i), seeds + i);
   }
+
   return all_walks;
 }
 
@@ -175,6 +176,13 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
   int i, j;
   int *res = malloc(sizeof(int) * params->w);
   memset(res, -1, params->w * sizeof(int));
+#if OMP
+#pragma omp parallel
+#endif
+{
+  #if OMP
+  #pragma omp for schedule(dynamic) nowait
+  #endif
   for (i = 0; i < params->w; i++) {
     for (j = 0; j < params->k; j++) {
       if (is_sticky(walks[i][j], cluster)) {
@@ -183,6 +191,7 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
       }
     }
   }
+}
   return res;
 }
 
