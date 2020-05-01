@@ -25,4 +25,4 @@ image: $(CFILES) $(HFILES)
 	./crun-omp -m 70 -r "image.bmp"
 
 clean:
-	rm -rf crun-seq crun-omp test
+	rm -rf crun-seq crun-omp test *.bmp
