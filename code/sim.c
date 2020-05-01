@@ -129,7 +129,7 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
 // initialize the starting radius, number of walkers, and walk length
 param_t *step_1(int rc, int M) {
   param_t *ret = malloc(sizeof(param_t));
-  ret->rb = rc + 3;
+  ret->rb = rc + 2 + M / 10;
   ret->k = choose_k(rc);
   ret->w = choose_w(M);
   return ret;
@@ -175,6 +175,9 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
   int i, j;
   int *res = malloc(sizeof(int) * params->w);
   memset(res, -1, params->w * sizeof(int));
+#if OMP
+#pragma omp parallel for
+#endif
   for (i = 0; i < params->w; i++) {
     for (j = 0; j < params->k; j++) {
       if (is_sticky(walks[i][j], cluster)) {
