@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
   int c;
   char *optstring = "hm:o:r:s:t";
   random_t seed = DEFAULTSEED;
-  int max_radius = 10;
+  int max_radius = 125;
   bool tracking = false;
   char* image_name = NULL;
   char* test_output_name = NULL;

@@ -21,6 +21,7 @@
 #define TAU 6.28
 #define MAX_MASS 5000
 #define MAX_RAD 300
+#define RAD_THRESHOLD 75
 #define KFACTOR 10
 #define MFACTOR 0.1
 #define MEPSILON 0.01
@@ -79,6 +80,14 @@ cluster_t *init_cluster(int radius) {
 // return coordinate of starting point for particle around circle of size radius
 coord_t create_start(int rb, random_t *seed) {
   float deg = next_random_float(seed, TAU);
+  coord_t res;
+  res.i = (int)(rb * sin(deg));
+  res.j = (int)(rb * cos(deg));
+  return res;
+}
+
+coord_t create_start_large(int rb, random_t *seed) {
+  float deg = omp_get_thread_num() * (TAU / omp_get_num_threads()) + next_random_float(seed, TAU / omp_get_num_threads());
   coord_t res;
   res.i = (int)(rb * sin(deg));
   res.j = (int)(rb * cos(deg));
@@ -147,6 +156,19 @@ coord_t **step_2(param_t *params, random_t *seeds) {
     all_walks[i] = malloc(sizeof(coord_t) * params->k);
     create_walk(all_walks[i], params->k,
                 create_start(params->rb, seeds + i), seeds + i);
+  }
+  return all_walks;
+}
+
+// create each walk
+coord_t **step_2_large(param_t *params, random_t *seeds) {
+  int i;
+  int w = params->w;
+  coord_t **all_walks = malloc(sizeof(coord_t *) * w);
+  for (i = 0; i < w; i++) {
+    all_walks[i] = malloc(sizeof(coord_t) * params->k);
+    create_walk(all_walks[i], params->k,
+                create_start_large(params->rb, seeds + i), seeds + i);
   }
   return all_walks;
 }
@@ -251,38 +273,58 @@ random_t *init_seeds(random_t seed, int max_radius) {
   return seeds;
 }
 
-void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius, char *test_output_name) {
-  int i;
+void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
   int rc = 1;
   int M = 1;
-  int iters = 0;
 
   while (rc < max_radius) {
-    param_t *params = step_1(rc, M);
+    if (rc < RAD_THRESHOLD) {
+      param_t *params = step_1(rc, M);
+      START_ACTIVITY(ACTIVITY_CREATE_WALKS);
+      coord_t **walks = step_2(params, seeds);
+      FINISH_ACTIVITY(ACTIVITY_CREATE_WALKS);
 
-    START_ACTIVITY(ACTIVITY_CREATE_WALKS);
-    coord_t **walks = step_2(params, seeds);
-    FINISH_ACTIVITY(ACTIVITY_CREATE_WALKS);
+      START_ACTIVITY(ACTIVITY_FIND_STICKING);
+      int *res = step_3(walks, cluster, params);
+      FINISH_ACTIVITY(ACTIVITY_FIND_STICKING);
 
-    START_ACTIVITY(ACTIVITY_FIND_STICKING);
-    int *res = step_3(walks, cluster, params);
-    FINISH_ACTIVITY(ACTIVITY_FIND_STICKING);
+      START_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
+      int k = step_4(res, walks, params);
+      FINISH_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
 
-    START_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
-    int k = step_4(res, walks, params);
-    FINISH_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
+      START_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
+      int thisrc = step_5(cluster, res, walks, params, k, &M);
+      FINISH_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
 
-    START_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
-    int thisrc = step_5(cluster, res, walks, params, k, &M);
-    FINISH_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
-
-    rc = thisrc > rc ? thisrc : rc;
-    iters++;
-    for (i = 0; i < params->w; i++)
-      free(walks[i]);
-    free(walks);
-    free(res);
-    free(params);
+      rc = thisrc > rc ? thisrc : rc;
+      int i;
+      for (i = 0; i < params->w; i++)
+        free(walks[i]);
+      free(walks);
+      free(res);
+      free(params);
+    } else {
+#if OMP
+#pragma omp parallel
+#endif
+      {
+        random_t *seeds = init_seeds(DEFAULTSEED, max_radius);
+        param_t *params = step_1(rc, M);
+        params->w /= omp_get_num_threads();
+        coord_t **walks = step_2_large(params, seeds);
+        int *res = step_3(walks, cluster, params);
+        int k = step_4(res, walks, params);
+        int thisrc = step_5(cluster, res, walks, params, k, &M);
+        rc = thisrc > rc ? thisrc : rc;
+        int i;
+        for (i = 0; i < params->w; i++)
+          free(walks[i]);
+        free(walks);
+        free(res);
+        free(params);
+        free(seeds);
+      }
+    }
   }
 }
 
@@ -291,7 +333,7 @@ void simulate(bool tracking, char* image_name, char *test_output_name, int max_r
   cluster_t *cluster = init_cluster(max_radius);
   random_t *seeds = init_seeds(seed, max_radius);
 
-  do_simulation(cluster, seeds, max_radius, test_output_name);
+  do_simulation(cluster, seeds, max_radius);
 
   if (image_name != NULL)
     generate_image(cluster->matrix, cluster->diameter, cluster->radius, image_name);
