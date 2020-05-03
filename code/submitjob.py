@@ -64,7 +64,8 @@ def generateScript(scriptName = "latedays.sh", argString = "", outputName = "ben
     scriptFile.write("cd $PBS_O_WORKDIR\n")
     scriptFile.write("\n")
     scriptFile.write("# Execute the performance evaluation program and store summary in %s\n" % outputName)
-    scriptFile.write("./benchmark.py %s\n" % argString)
+    # scriptFile.write("./benchmark.py %s\n" % argString)
+    scriptFile.write("./benchmark.sh")
     scriptFile.close()
     return True
 

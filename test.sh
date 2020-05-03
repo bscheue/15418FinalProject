@@ -14,5 +14,5 @@ make all
 
 ./submitjob.py
 
-while [ ! -f ~/code/*.sh.o* ]; do sleep 1; done
-cat ~/code/*.sh.o* | tail -n8
+while [ ! -f ~/code/*.sh.e* ]; do sleep 1; done
+cat ~/code/*.sh.e*
