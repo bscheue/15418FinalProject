@@ -278,7 +278,7 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
   int M = 1;
 
   while (rc < max_radius) {
-    if (rc < RAD_THRESHOLD) {
+    if (rc < RAD_THRESHOLD || true) {
       param_t *params = step_1(rc, M);
       START_ACTIVITY(ACTIVITY_CREATE_WALKS);
       coord_t **walks = step_2(params, seeds);
