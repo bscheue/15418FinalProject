@@ -201,12 +201,13 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
 // return the points where each particle sticks to the cluster (-1 if it doesn't
 // stick)
 void step_3(int *res, coord_t **walks, cluster_t *cluster, param_t *params) {
-  int i, j;
+  int i;
   memset(res, -1, params->w * sizeof(int));
 #if OMP
 #pragma omp parallel for
 #endif
   for (i = 0; i < params->w; i++) {
+    int j;
     for (j = 0; j < params->k; j++) {
       if (is_sticky(walks[i][j], cluster)) {
         res[i] = j;
@@ -248,8 +249,14 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
     int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
     if (cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] ==
         0) {
+      #if OMP
+      #pragma omp critical
+      #endif
       cluster->matrix[tup.i + cluster->radius][tup.j + cluster->radius] = true;
       rc = this_rc > rc ? this_rc : rc;
+      #if OMP
+      #pragma omp atomic
+      #endif
       *M += 1;
     }
   }
@@ -291,7 +298,7 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
     walks[i] = malloc(sizeof(coord_t) * choose_k(max_radius));
 
   while (rc < max_radius) {
-    if (rc < RAD_THRESHOLD || true) {
+    if (rc < RAD_THRESHOLD) {
       params = step_1(params, rc, M);
       START_ACTIVITY(ACTIVITY_CREATE_WALKS);
       step_2(walks, params, seeds);
@@ -311,26 +318,27 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
 
       rc = thisrc > rc ? thisrc : rc;
     } else {
+#if OMP
+#pragma omp parallel
+#endif
+{
+      int i;
+      int *res = malloc(sizeof(int) * max_w);;
+      random_t *seeds = init_seeds(DEFAULTSEED, max_radius);
+      params = step_1(params, rc, M);
+      params->w /= omp_get_num_threads();
+      coord_t **walks = step_2_large(params, seeds);
+      step_3(res, walks, cluster, params);
+      int k = step_4(res, walks, params);
+      int thisrc = step_5(cluster, res, walks, params, k, &M);
+      rc = thisrc > rc ? thisrc : rc;
+      free(res);
+      for (i = 0; i < params->w; i++)
+        free(walks[i]);
+      free(walks);
+      free(seeds);
+}
     }
-    /* #if OMP */
-    /* #pragma omp parallel */
-    /* #endif */
-    /*       { */
-    /*         random_t *seeds = init_seeds(DEFAULTSEED, max_radius); */
-    /*         param_t *params = step_1(params, rc, M); */
-    /*         params->w /= omp_get_num_threads(); */
-    /*         coord_t **walks = step_2_large(params, seeds); */
-    /*         int *res = step_3(res, walks, cluster, params); */
-    /*         int k = step_4(res, walks, params); */
-    /*         int thisrc = step_5(cluster, res, walks, params, k, &M); */
-    /*         rc = thisrc > rc ? thisrc : rc; */
-    /*         int i; */
-    /*         for (i = 0; i < params->w; i++) */
-    /*           free(walks[i]); */
-    /*         free(walks); */
-    /*         free(seeds); */
-    /*       } */
-    /*     } */
   }
 
   for (i = 0; i < max_w; i++)
