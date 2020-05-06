@@ -76,17 +76,16 @@ cluster_t *init_cluster(int radius) {
     g->matrix[i] = calloc(diameter, sizeof(char));
 
   // start off with just the center point in the cluster
-  printf("radius = %d\n", radius);
   g->matrix[radius][radius] = OCCUPIED;
 
-  g->matrix[radius-1][radius] = STICKY; 
-  g->matrix[radius-1][radius-1] = STICKY; 
-  g->matrix[radius-1][radius+1] = STICKY; 
-  g->matrix[radius+1][radius] = STICKY; 
-  g->matrix[radius+1][radius-1] = STICKY; 
-  g->matrix[radius+1][radius+1] = STICKY; 
-  g->matrix[radius][radius+1] = STICKY; 
-  g->matrix[radius][radius-1] = STICKY; 
+  g->matrix[radius-1][radius] = STICKY;
+  g->matrix[radius-1][radius-1] = STICKY;
+  g->matrix[radius-1][radius+1] = STICKY;
+  g->matrix[radius+1][radius] = STICKY;
+  g->matrix[radius+1][radius-1] = STICKY;
+  g->matrix[radius+1][radius+1] = STICKY;
+  g->matrix[radius][radius+1] = STICKY;
+  g->matrix[radius][radius-1] = STICKY;
 
   return g;
 }
@@ -112,25 +111,25 @@ coord_t create_start_large(int rb, random_t *seed) {
 // create a walk of length k
 void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   int i;
-  walk[0].i = start.i; 
+  walk[0].i = start.i;
   walk[0].j = start.j;
-  int accum_i = start.i; 
-  int accum_j = start.j; 
+  int accum_i = start.i;
+  int accum_j = start.j;
   for (i = 1; i < k; i++) {
     random_t f = next_random_float(seed, 4);
     int dir = round(f);
     switch (dir) {
     case 0:
       walk[i].i = accum_i + 1;
-      walk[i].j = accum_j; 
+      walk[i].j = accum_j;
       break;
     case 1:
       walk[i].j = accum_j + 1;
-      walk[i].i = accum_i; 
+      walk[i].i = accum_i;
       break;
     case 2:
       walk[i].i = accum_i - 1;
-      walk[i].j = accum_j; 
+      walk[i].j = accum_j;
       break;
     case 3:
       walk[i].j = accum_j - 1;
@@ -139,8 +138,8 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
     default:
       printf("mistake\n");
     }
-    accum_i = walk[i].i; 
-    accum_j = walk[i].j; 
+    accum_i = walk[i].i;
+    accum_j = walk[i].j;
   }
 }
 
@@ -183,8 +182,8 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
   int locy = loc.j + cluster->radius;
   char **matrix = cluster->matrix;
   if (locx <= 0 || locx >= cluster->diameter-1
-    || locy <= 0 || locy >= cluster->diameter-1) return false; 
-  return matrix[locx][locy] == STICKY; 
+    || locy <= 0 || locy >= cluster->diameter-1) return false;
+  return matrix[locx][locy] == STICKY;
     // locx >= 1 && locx < cluster->diameter - 1
     // && locy >= 1 && locy < cluster->diameter - 1
     // && (matrix[locx - 1][locy]
@@ -234,31 +233,30 @@ int step_4(int *res, coord_t **walks, param_t *params) {
 }
 
 bool add_particle(cluster_t *cluster, int i, int j) {
-  int locx = i + cluster->radius; 
-  int locy = j + cluster->radius; 
+  int locx = i + cluster->radius;
+  int locy = j + cluster->radius;
   char **matrix = cluster->matrix;
 
   if (matrix[locx][locy] == OCCUPIED
-    || locx <= 0 || locx >= cluster->diameter - 1 
+    || locx <= 0 || locx >= cluster->diameter - 1
     || locy <= 0 || locy >= cluster->diameter - 1) {
-    return false; 
+    return false;
   }
-  
-  matrix[locx][locy] = OCCUPIED; 
+
+  matrix[locx][locy] = OCCUPIED;
   if (locx >= 1) {
-    if (matrix[locx-1][locy] == EMPTY) matrix[locx-1][locy] = STICKY; 
-    if (locy >= 1 && matrix[locx-1][locy-1] == EMPTY) matrix[locx-1][locy-1] = STICKY; 
-    if (locy < cluster->diameter - 1 && matrix[locx-1][locy+1] == EMPTY) matrix[locx-1][locy+1] = STICKY; 
+    if (matrix[locx-1][locy] == EMPTY) matrix[locx-1][locy] = STICKY;
+    if (locy >= 1 && matrix[locx-1][locy-1] == EMPTY) matrix[locx-1][locy-1] = STICKY;
+    if (locy < cluster->diameter - 1 && matrix[locx-1][locy+1] == EMPTY) matrix[locx-1][locy+1] = STICKY;
   }
   if (locx < cluster->diameter-1) {
-    if (matrix[locx+1][locy] == EMPTY) matrix[locx+1][locy] = STICKY; 
-    if (locy >= 1 && matrix[locx+1][locy-1] == EMPTY) matrix[locx+1][locy-1] = STICKY; 
-    if (locy < cluster->diameter - 1 && matrix[locx+1][locy+1] == EMPTY) matrix[locx+1][locy+1] = STICKY; 
+    if (matrix[locx+1][locy] == EMPTY) matrix[locx+1][locy] = STICKY;
+    if (locy >= 1 && matrix[locx+1][locy-1] == EMPTY) matrix[locx+1][locy-1] = STICKY;
+    if (locy < cluster->diameter - 1 && matrix[locx+1][locy+1] == EMPTY) matrix[locx+1][locy+1] = STICKY;
   }
-  if (locy >= 1 && matrix[locx][locy-1] == EMPTY) matrix[locx][locy-1] = STICKY; 
+  if (locy >= 1 && matrix[locx][locy-1] == EMPTY) matrix[locx][locy-1] = STICKY;
   if (locy < cluster->diameter-1 && matrix[locx][locy+1] == EMPTY) matrix[locx][locy+1] = STICKY;
-  // printf("fini incremenet");
-  return true; 
+  return true;
 
 }
 
@@ -276,7 +274,6 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
     coord_t tup = walks[i][res[i]];
     int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
     if (add_particle(cluster, tup.i, tup.j) == true) {
-      // printf("particle added: new rc = %d, oldrc = %d, stuck particle (%d, %d)\n", this_rc,rc, tup.i, tup.j);
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
     }
@@ -326,23 +323,18 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
       START_ACTIVITY(ACTIVITY_CREATE_WALKS);
       step_2(walks, params, seeds);
       FINISH_ACTIVITY(ACTIVITY_CREATE_WALKS);
-      // printf("finished step 2\n");
 
       START_ACTIVITY(ACTIVITY_FIND_STICKING);
       step_3(res, walks, cluster, params);
       FINISH_ACTIVITY(ACTIVITY_FIND_STICKING);
-      // printf("finished step 3\n");
 
       START_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
       int k = step_4(res, walks, params);
       FINISH_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
-      // printf("finished step 4\n");
 
       START_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
       int thisrc = step_5(cluster, res, walks, params, k, &M);
       FINISH_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
-      // printf("finished step 5\n");
-      // printf("thisrc %d\n", thisrc);
       rc = thisrc > rc ? thisrc : rc;
     }
     else {}
@@ -366,7 +358,6 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
 /*       } */
 /*     } */
   }
-  printf("radius is %d\n", rc); 
 
   for (i = 0; i < max_w; i++)
     free(walks[i]);
