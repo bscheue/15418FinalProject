@@ -135,6 +135,49 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   }
 }
 
+// SIMD 
+
+void create_walk_simd(coord_t *walk, int k, random_t *seed) {
+  int i;
+  for (i = 1; i < k; i++) {
+    random_t f = next_random_float(seed, 4);
+    int dir = round(f);
+    switch (dir) {
+    case 0:
+      walk[i].i = 1;
+      walk[i].j = 0;
+      break;
+    case 1:
+      walk[i].i = 0;
+      walk[i].j = 1;
+      break;
+    case 2:
+      walk[i].i = -1;
+      walk[i].j = 0;
+      break;
+    case 3:
+      walk[i].i = 0;
+      walk[i].j = -1;
+      break;
+    default:
+      printf("mistake\n");
+    }
+  }
+}
+
+#if OMP
+#pragma omp declare simd
+#endif
+void add_walk_simd(coord_t *walk, int k, coord_t start) {
+  walk[0].i = start.i;
+  walk[0].j = start.j;
+  int i;
+  for (i = 1; i < k; i++) {
+    walk[i].i += walk[i-1].i;
+    walk[i].j += walk[i-1].j;
+  }
+}
+
 // initialize the starting radius, number of walkers, and walk length
 param_t *step_1(param_t *params, int rc, int M) {
   params->rb = rc + 2 + M / 10;
@@ -147,11 +190,13 @@ param_t *step_1(param_t *params, int rc, int M) {
 void step_2(coord_t **walks, param_t *params, random_t *seeds) {
   int i;
 #if OMP
-#pragma omp parallel for
+#pragma omp parallel for simd
 #endif
   for (i = 0; i < params->w; i++) {
-    create_walk(walks[i], params->k,
-                create_start(params->rb, seeds + i), seeds + i);
+    coord_t start = create_start(params->rb, seeds + i);
+    create_walk_simd(walks[i], params->k, seeds + i); 
+    add_walk_simd(walks[i], params->k, start); 
+    // create_walk(walks[i], params->k, start, seeds + i);
   }
 }
 
