@@ -94,25 +94,25 @@ coord_t create_start_large(int rb, random_t *seed) {
 // create a walk of length k
 void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   int i;
-  walk[0].i = start.i; 
+  walk[0].i = start.i;
   walk[0].j = start.j;
-  int accum_i = start.i; 
-  int accum_j = start.j; 
+  int accum_i = start.i;
+  int accum_j = start.j;
   for (i = 1; i < k; i++) {
     random_t f = next_random_float(seed, 4);
     int dir = round(f);
     switch (dir) {
     case 0:
       walk[i].i = accum_i + 1;
-      walk[i].j = accum_j; 
+      walk[i].j = accum_j;
       break;
     case 1:
       walk[i].j = accum_j + 1;
-      walk[i].i = accum_i; 
+      walk[i].i = accum_i;
       break;
     case 2:
       walk[i].i = accum_i - 1;
-      walk[i].j = accum_j; 
+      walk[i].j = accum_j;
       break;
     case 3:
       walk[i].j = accum_j - 1;
@@ -121,8 +121,8 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
     default:
       printf("mistake\n");
     }
-    accum_i = walk[i].i; 
-    accum_j = walk[i].j; 
+    accum_i = walk[i].i;
+    accum_j = walk[i].j;
   }
 }
 
@@ -136,14 +136,35 @@ param_t *step_1(param_t *params, int rc, int M) {
 
 // create each walk
 void step_2(coord_t **walks, param_t *params, random_t *seeds) {
-  int i;
 #if OMP
-#pragma omp parallel for
+#pragma omp parallel
 #endif
-  for (i = 0; i < params->w; i++) {
-    random_t seed = 618 * i * i;
-    create_walk(walks[i], params->k, create_start(params->rb, &seed), &seed);
+{
+  if (params->w <= omp_get_num_threads() && omp_get_thread_num() == 0) {
+    int i;
+    for (i = 0; i < params->w; i++)
+      create_walk(walks[i], params->k, create_start(params->rb, seeds + i), seeds + i);
   }
+  else if (params->w > omp_get_num_threads()) {
+    int i;
+    int chunksize = params->w / omp_get_num_threads();
+    int start = omp_get_thread_num() * chunksize;
+    random_t *local_seeds = malloc(sizeof(random_t) * chunksize);
+    memcpy(local_seeds, seeds + start, chunksize * sizeof(random_t));
+    for (i = 0; i < chunksize; i++) {
+      if (start + i >= params->w)
+        continue;
+      /* random_t *seed = malloc(sizeof(random_t)); */
+      /* *seed = seeds[i]; */
+      create_walk(walks[start + i], params->k, create_start(params->rb, local_seeds + i), local_seeds + i);
+      /* create_walk(walks[i], params->k, create_start(params->rb, seed), seed); */
+      /* seeds[i] = *seed; */
+      /* free(seed); */
+    }
+    memcpy(seeds + start, local_seeds, chunksize * sizeof(random_t));
+    free(local_seeds);
+  }
+}
 }
 
 // create each walk
@@ -220,9 +241,6 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
   int rc = 0;
   // if k is -1 then every particle that sticks should be added to the cluster
   k = k == -1 ? params->w : k;
-#if OMP
-#pragma omp parallel for
-#endif
   for (i = 0; i < k; i++) {
     if (res[i] == -1)
       continue;
