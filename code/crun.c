@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
   bool tracking = false;
   char* image_name = NULL;
   char* test_output_name = NULL;
-  int thread_count = 1;
+  int thread_count = 2;
   while ((c = getopt(argc, argv, optstring)) != -1) {
     switch (c) {
     case 'b':

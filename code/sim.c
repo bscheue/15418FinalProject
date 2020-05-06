@@ -135,29 +135,69 @@ void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   }
 }
 
+// SIMD 
+
+void create_walk_simd(coord_t *walk, int k, random_t *seed) {
+  int i;
+  for (i = 1; i < k; i++) {
+    random_t f = next_random_float(seed, 4);
+    int dir = round(f);
+    switch (dir) {
+    case 0:
+      walk[i].i = 1;
+      walk[i].j = 0;
+      break;
+    case 1:
+      walk[i].i = 0;
+      walk[i].j = 1;
+      break;
+    case 2:
+      walk[i].i = -1;
+      walk[i].j = 0;
+      break;
+    case 3:
+      walk[i].i = 0;
+      walk[i].j = -1;
+      break;
+    default:
+      printf("mistake\n");
+    }
+  }
+}
+
+#if OMP
+#pragma omp declare simd
+#endif
+void add_walk_simd(coord_t *walk, int k, coord_t start) {
+  walk[0].i = start.i;
+  walk[0].j = start.j;
+  int i;
+  for (i = 1; i < k; i++) {
+    walk[i].i += walk[i-1].i;
+    walk[i].j += walk[i-1].j;
+  }
+}
+
 // initialize the starting radius, number of walkers, and walk length
-param_t *step_1(int rc, int M) {
-  param_t *ret = malloc(sizeof(param_t));
-  ret->rb = rc + 2 + M / 10;
-  ret->k = choose_k(rc);
-  ret->w = choose_w(M);
-  return ret;
+param_t *step_1(param_t *params, int rc, int M) {
+  params->rb = rc + 2 + M / 10;
+  params->k = choose_k(rc);
+  params->w = choose_w(M);
+  return params;
 }
 
 // create each walk
-coord_t **step_2(param_t *params, random_t *seeds) {
+void step_2(coord_t **walks, param_t *params, random_t *seeds) {
   int i;
-  int w = params->w;
-  coord_t **all_walks = malloc(sizeof(coord_t *) * w);
 #if OMP
-#pragma omp parallel for
+#pragma omp parallel for simd
 #endif
-  for (i = 0; i < w; i++) {
-    all_walks[i] = malloc(sizeof(coord_t) * params->k);
-    create_walk(all_walks[i], params->k,
-                create_start(params->rb, seeds + i), seeds + i);
+  for (i = 0; i < params->w; i++) {
+    coord_t start = create_start(params->rb, seeds + i);
+    create_walk_simd(walks[i], params->k, seeds + i); 
+    add_walk_simd(walks[i], params->k, start); 
+    // create_walk(walks[i], params->k, start, seeds + i);
   }
-  return all_walks;
 }
 
 // create each walk
@@ -193,9 +233,8 @@ bool is_sticky(coord_t loc, cluster_t *cluster) {
 }
 
 // return the points where each particle sticks to the cluster (-1 if it doesn't stick)
-int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
+void step_3(int *res, coord_t **walks, cluster_t *cluster, param_t *params) {
   int i, j;
-  int *res = malloc(sizeof(int) * params->w);
   memset(res, -1, params->w * sizeof(int));
 #if OMP
 #pragma omp parallel for
@@ -208,7 +247,6 @@ int *step_3(coord_t **walks, cluster_t *cluster, param_t *params) {
       }
     }
   }
-  return res;
 }
 
 // return the first particle id where two particles interfere
@@ -277,15 +315,23 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
   int rc = 1;
   int M = 1;
 
+  param_t *params = malloc(sizeof(param_t));
+  int max_w = choose_w(cluster->diameter * cluster->diameter);
+  int *res = malloc(sizeof(int) * max_w);
+  coord_t **walks = malloc(sizeof(coord_t *) * max_w);
+  int i;
+  for (i = 0; i < max_w; i++)
+    walks[i] = malloc(sizeof(coord_t) * choose_k(max_radius));
+
   while (rc < max_radius) {
     if (rc < RAD_THRESHOLD || true) {
-      param_t *params = step_1(rc, M);
+      params = step_1(params, rc, M);
       START_ACTIVITY(ACTIVITY_CREATE_WALKS);
-      coord_t **walks = step_2(params, seeds);
+      step_2(walks, params, seeds);
       FINISH_ACTIVITY(ACTIVITY_CREATE_WALKS);
 
       START_ACTIVITY(ACTIVITY_FIND_STICKING);
-      int *res = step_3(walks, cluster, params);
+      step_3(res, walks, cluster, params);
       FINISH_ACTIVITY(ACTIVITY_FIND_STICKING);
 
       START_ACTIVITY(ACTIVITY_FIND_INTERFERENCE);
@@ -297,35 +343,35 @@ void do_simulation(cluster_t *cluster, random_t *seeds, int max_radius) {
       FINISH_ACTIVITY(ACTIVITY_ADD_TO_CLUSTER);
 
       rc = thisrc > rc ? thisrc : rc;
-      int i;
-      for (i = 0; i < params->w; i++)
-        free(walks[i]);
-      free(walks);
-      free(res);
-      free(params);
-    } else {
-#if OMP
-#pragma omp parallel
-#endif
-      {
-        random_t *seeds = init_seeds(DEFAULTSEED, max_radius);
-        param_t *params = step_1(rc, M);
-        params->w /= omp_get_num_threads();
-        coord_t **walks = step_2_large(params, seeds);
-        int *res = step_3(walks, cluster, params);
-        int k = step_4(res, walks, params);
-        int thisrc = step_5(cluster, res, walks, params, k, &M);
-        rc = thisrc > rc ? thisrc : rc;
-        int i;
-        for (i = 0; i < params->w; i++)
-          free(walks[i]);
-        free(walks);
-        free(res);
-        free(params);
-        free(seeds);
-      }
     }
+    else {}
+/* #if OMP */
+/* #pragma omp parallel */
+/* #endif */
+/*       { */
+/*         random_t *seeds = init_seeds(DEFAULTSEED, max_radius); */
+/*         param_t *params = step_1(params, rc, M); */
+/*         params->w /= omp_get_num_threads(); */
+/*         coord_t **walks = step_2_large(params, seeds); */
+/*         int *res = step_3(res, walks, cluster, params); */
+/*         int k = step_4(res, walks, params); */
+/*         int thisrc = step_5(cluster, res, walks, params, k, &M); */
+/*         rc = thisrc > rc ? thisrc : rc; */
+/*         int i; */
+/*         for (i = 0; i < params->w; i++) */
+/*           free(walks[i]); */
+/*         free(walks); */
+/*         free(seeds); */
+/*       } */
+/*     } */
   }
+
+  for (i = 0; i < max_w; i++)
+    free(walks[i]);
+  free(walks);
+  free(res);
+  free(params);
+  free(seeds);
 }
 
 void simulate(bool tracking, char* image_name, char *test_output_name, int max_radius, random_t seed) {
