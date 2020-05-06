@@ -5,8 +5,8 @@
 
 #include "cycletimer.h"
 #include "image.h"
-#include "instrument.h"
 #include "rutil.h"
+#include "instrument.h"
 
 #ifndef OMP
 #define OMP 0
