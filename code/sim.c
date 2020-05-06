@@ -150,8 +150,11 @@ void step_2(coord_t **walks, param_t *params, random_t *seeds) {
 #pragma omp parallel for
 #endif
   for (i = 0; i < params->w; i++) {
+    random_t seed = 618 * i * i;
     create_walk(walks[i], params->k,
-                create_start(params->rb, seeds + i), seeds + i);
+                create_start(params->rb, &seed), &seed);
+    /* create_walk(walks[i], params->k, */
+    /*             create_start(params->rb, seeds + i), seeds + i); */
   }
 }
 
