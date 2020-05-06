@@ -11,13 +11,16 @@
 const int bytesPerPixel = 3;
 const int fileHeaderSize = 14;
 const int infoHeaderSize = 40;
+#define EMPTY 0
+#define STICKY 1
+#define OCCUPIED 2
 
 void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
 unsigned char* createBitmapFileHeader(int height, int width, int paddingSize);
 unsigned char* createBitmapInfoHeader(int height, int width);
 
 
-void generate_image(bool **matrix, int n, int center, char *imageFileName){
+void generate_image(char **matrix, int n, int center, char *imageFileName){
     unsigned char image[n][n][bytesPerPixel];
 
     int i, j;
@@ -28,7 +31,7 @@ void generate_image(bool **matrix, int n, int center, char *imageFileName){
               image[i][j][1] = 0;
               image[i][j][2] = 0;
             }
-            else if (matrix[i][j]) {
+            else if (matrix[i][j] == OCCUPIED) {
               image[i][j][0] = 0;
               image[i][j][1] = 0;
               image[i][j][2] = 0;
