@@ -94,41 +94,35 @@ coord_t create_start_large(int rb, random_t *seed) {
 // create a walk of length k
 void create_walk(coord_t *walk, int k, coord_t start, random_t *seed) {
   int i;
+  walk[0].i = start.i; 
+  walk[0].j = start.j;
+  int accum_i = start.i; 
+  int accum_j = start.j; 
   for (i = 1; i < k; i++) {
     random_t f = next_random_float(seed, 4);
     int dir = round(f);
     switch (dir) {
     case 0:
-      walk[i].i = 1;
-      walk[i].j = 0;
+      walk[i].i = accum_i + 1;
+      walk[i].j = accum_j; 
       break;
     case 1:
-      walk[i].i = 0;
-      walk[i].j = 1;
+      walk[i].j = accum_j + 1;
+      walk[i].i = accum_i; 
       break;
     case 2:
-      walk[i].i = -1;
-      walk[i].j = 0;
+      walk[i].i = accum_i - 1;
+      walk[i].j = accum_j; 
       break;
     case 3:
-      walk[i].i = 0;
-      walk[i].j = -1;
+      walk[i].j = accum_j - 1;
+      walk[i].i = accum_i;
       break;
     default:
       printf("mistake\n");
     }
-  }
-
-  // compute prefix sum
-  int acci = start.i;
-  int accj = start.j;
-  walk[0].i = acci;
-  walk[0].j = accj;
-  for (i = 1; i < k; i++) {
-    acci += walk[i].i;
-    accj += walk[i].j;
-    walk[i].i = acci;
-    walk[i].j = accj;
+    accum_i = walk[i].i; 
+    accum_j = walk[i].j; 
   }
 }
 
@@ -149,8 +143,6 @@ void step_2(coord_t **walks, param_t *params, random_t *seeds) {
   for (i = 0; i < params->w; i++) {
     random_t seed = 618 * i * i;
     create_walk(walks[i], params->k, create_start(params->rb, &seed), &seed);
-    /* create_walk(walks[i], params->k, */
-    /*             create_start(params->rb, seeds + i), seeds + i); */
   }
 }
 
@@ -228,6 +220,9 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
   int rc = 0;
   // if k is -1 then every particle that sticks should be added to the cluster
   k = k == -1 ? params->w : k;
+#if OMP
+#pragma omp parallel for
+#endif
   for (i = 0; i < k; i++) {
     if (res[i] == -1)
       continue;
