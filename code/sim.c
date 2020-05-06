@@ -256,17 +256,25 @@ int step_5(cluster_t *cluster, int *res, coord_t **walks, param_t *params,
   int rc = 0;
   // if k is -1 then every particle that sticks should be added to the cluster
   k = k == -1 ? params->w : k;
+#if OMP
+#pragma omp parallel for
+#endif 
   for (i = 0; i < k; i++) {
     if (res[i] == -1) {
       continue;
     }
     coord_t tup = walks[i][res[i]];
     int this_rc = round(sqrt(tup.i * tup.i + tup.j * tup.j));
-    if (add_particle(cluster, tup.i, tup.j) == true) {
+#if OMP
+#pragma omp critical 
+#endif 
+{
+    if (add_particle(cluster, tup.i, tup.j)) {
       rc = this_rc > rc ? this_rc : rc;
       *M += 1;
     }
   }
+}
   return cluster->radius < rc ? cluster->radius : rc;
 }
 
